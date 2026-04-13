@@ -54,6 +54,11 @@ pipeline {
         stage('Deploy to EKS') {
             steps {
                 sh '''
+                 echo "Current directory:"
+        pwd
+
+        echo "List files:"
+        ls -l
                 aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
 
                 kubectl apply -f deployment.yaml

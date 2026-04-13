@@ -4,14 +4,22 @@ pipeline {
     environment {
         GIT_REPO = 'https://github.com/suhassg25/addressbook.git'
         AWS_REGION = 'ap-south-1'
-        ECR_REPO_NAME = 'sample/jenkinspush'
-        ECR_PUBLIC_REPO_URI = '409171460696.dkr.ecr.ap-south-1.amazonaws.com/sample/jenkinspush'
+        ECR_REPO_NAME = 'jenkinsecr'
+        ECR_PUBLIC_REPO_URI = '409171460696.dkr.ecr.ap-south-1.amazonaws.com/jenkinsecr'
         IMAGE_TAG = 'latest'
         AWS_ACCOUNT_ID = '409171460696'
         IMAGE_URI = "${ECR_PUBLIC_REPO_URI}:${IMAGE_TAG}"
+        EKS_CLUSTER = 'my-cluster'
     }
 
     stages {
+        
+        stage('Clean Workspace') {
+            steps {
+                deleteDir()
+            }
+        }
+    
         stage('Clone Repository') {
             steps {
                 git url: "${GIT_REPO}", branch: 'master'
@@ -62,11 +70,27 @@ pipeline {
                 }
             }
         }
+        stage('Deploy to EKS') {
+            steps {
+                script {
+                    sh '''
+                        echo "Updating kubeconfig..."
+                        mkdir -p /var/lib/jenkins/.kube
+                        aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER --kubeconfig /var/lib/jenkins/.kube/config
+                        export KUBECONFIG=/var/lib/jenkins/.kube/config
+                        echo "Applying Kubernetes manifests..."
+                        kubectl apply -f deployment.yaml --validate=false
+                        kubectl apply -f servicelb.yaml --validate=false
+                    '''
+                }
+            }
+        }
+        
     }
     
     post {
         success {
-            echo "Docker image pushed to ECR successfully and deployed."
+            echo "Docker image pushed to ECR successfully and deployed addressbook to EKS cluster ."
         }
         failure {
             echo "Pipeline failed."
